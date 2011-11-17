@@ -22,9 +22,15 @@ import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.Date;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 
+import javax.imageio.ImageIO;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -33,6 +39,8 @@ import net.pms.PMS;
 import net.pms.configuration.PmsConfiguration;
 import net.pms.dlna.DLNAMediaInfo;
 import net.pms.dlna.DLNAResource;
+import net.pms.dlna.InputFile;
+import net.pms.dlna.RealFile;
 import net.pms.formats.Format;
 
 import org.slf4j.Logger;
@@ -47,7 +55,7 @@ import org.slf4j.LoggerFactory;
  * @TODO: debugging isn't so neat at the moment. Should use difference in debug, message and error.
  *
  */
-public class ViewStatus implements StartStopListener, ActionListener 
+public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionListener 
 {
 	private static final Logger log = LoggerFactory.getLogger(ViewStatus.class);
 	private Date startDate;			//date when the file was started
@@ -120,6 +128,11 @@ public class ViewStatus implements StartStopListener, ActionListener
 					fileViewPercentage = Math.min(100, currentFileViewPercentage);
 					props.setProperty(infoKey, Integer.toString((int)fileViewPercentage));
 					
+					// update the thumbnail
+					InputFile f = new InputFile();
+					f.setFile(((RealFile) resource).getFile());
+					updateThumb(media, f);
+					
 					try {
 						props.store(new FileOutputStream(infoFile), null);
 					} catch (IOException e) {
@@ -162,7 +175,6 @@ public class ViewStatus implements StartStopListener, ActionListener
 		return "View Status";
 	}
 	
-	
 	/**
 	 * for now, just do an info, this is easier to debug (ends up in trace)
 	 * 
@@ -195,6 +207,69 @@ public class ViewStatus implements StartStopListener, ActionListener
 		{
 			enabledMV = cbEnableMV.isSelected();
 			PMSConf.setCustomProperty("enableViewStatus", enabledMV);	
+		}
+	}
+
+	@Override
+	public void updateThumb(DLNAMediaInfo media, InputFile f) {
+		debug("Thumbnail update request");
+		try {
+			BufferedImage image = ImageIO.read(new ByteArrayInputStream(media.getThumb()));
+			
+			if (image != null) {
+				Graphics g = image.getGraphics();
+				Path infoFilePath = Paths.get(f.getFile().getPath());		// get path of current file
+				String folderName = infoFilePath.getParent().toString();	// get folder
+				String infoFile = folderName + "/.viewinfo.conf";			// get get infofilename
+				String infoKey = f.getFile().getName();						// get keyname
+				
+				Properties props = new Properties();
+				
+				try {
+					props.load(new FileInputStream(infoFile));
+					String viewInfo = "";
+					String allViewed = props.getProperty("allviewed", "false");
+					
+					// if allview=true is in the infofile, mark media as viewed
+					if(allViewed.equals("true"))
+					{
+						viewInfo = "viewed!";
+					}
+					else 
+					{
+						// get vieing percentage from infofile
+						int fileViewPercentage = Integer.parseInt(props.getProperty(infoKey, "0"));
+						if(fileViewPercentage != 0)
+						{
+							viewInfo = "viewed for " + fileViewPercentage + "%";
+						}
+					}
+					
+					// if info was set, draw it on the thumbnail
+					if(viewInfo != "")
+					{
+						// draw a senitransparent black bar to increase readability
+						g.setColor(new Color(0,0,0));
+						g.fillRect(0, image.getHeight() - 35, image.getWidth(), 35);
+		
+						// draw info
+						g.setFont(new Font("Arial", Font.PLAIN, 25));
+						g.setColor(new Color(240, 240, 240));
+						FontMetrics fm = g.getFontMetrics();
+						int viewInfoX = (image.getWidth() - fm.stringWidth(viewInfo)) / 2;
+						int viewInfoY = image.getHeight() - 7;
+						g.drawString(viewInfo, viewInfoX, viewInfoY);
+						
+						ByteArrayOutputStream out = new ByteArrayOutputStream();
+						ImageIO.write(image, "jpeg", out);
+						media.setThumb(out.toByteArray());
+						debug("Thumbnail updated for " + infoKey);
+					}
+				} catch (IOException e) {
+				}
+			}
+		} catch (IOException e) {
+			debug("Error while updating thumbnail : " + e.getMessage());
 		}
 	}
 }
