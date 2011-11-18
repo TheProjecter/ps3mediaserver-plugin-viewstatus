@@ -128,13 +128,14 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 					fileViewPercentage = Math.min(100, currentFileViewPercentage);
 					props.setProperty(infoKey, Integer.toString((int)fileViewPercentage));
 					
-					// update the thumbnail
-					InputFile f = new InputFile();
-					f.setFile(((RealFile) resource).getFile());
-					updateThumb(media, f);
-					
 					try {
 						props.store(new FileOutputStream(infoFile), null);
+						
+						// update the thumbnail
+						InputFile f = new InputFile();
+						f.setFile(((RealFile) resource).getFile());
+						updateThumb(media, f);
+						
 					} catch (IOException e) {
 						logExeptionError(e);
 					}
@@ -215,8 +216,10 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 		debug("Thumbnail update request");
 		try {
 			BufferedImage image = ImageIO.read(new ByteArrayInputStream(media.getThumb()));
+			debug("image from buffer requested");
 			
 			if (image != null) {
+				debug("image from buffer found");
 				Graphics g = image.getGraphics();
 				Path infoFilePath = Paths.get(f.getFile().getPath());		// get path of current file
 				String folderName = infoFilePath.getParent().toString();	// get folder
@@ -227,17 +230,18 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 				
 				try {
 					props.load(new FileInputStream(infoFile));
+					debug("properties found");
 					String viewInfo = "";
 					String allViewed = props.getProperty("allviewed", "false");
 					
 					// if allview=true is in the infofile, mark media as viewed
 					if(allViewed.equals("true"))
 					{
-						viewInfo = "viewed!";
+						viewInfo = "viewed";
 					}
 					else 
 					{
-						// get vieing percentage from infofile
+						// get viewing percentage from infofile
 						int fileViewPercentage = Integer.parseInt(props.getProperty(infoKey, "0"));
 						if(fileViewPercentage != 0)
 						{
@@ -248,6 +252,7 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 					// if info was set, draw it on the thumbnail
 					if(viewInfo != "")
 					{
+						debug("overlay for thubmnail");
 						// draw a senitransparent black bar to increase readability
 						g.setColor(new Color(0,0,0));
 						g.fillRect(0, image.getHeight() - 35, image.getWidth(), 35);
