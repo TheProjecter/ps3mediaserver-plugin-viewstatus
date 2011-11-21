@@ -132,9 +132,10 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 						props.store(new FileOutputStream(infoFile), null);
 						
 						// update the thumbnail
-						InputFile f = new InputFile();
-						f.setFile(((RealFile) resource).getFile());
-						updateThumb(media, f);
+						media.setThumb(null);
+						InputFile input = new InputFile();
+						input.setFile(((RealFile) resource).getFile());
+						media.generateThumbnail(input, resource.getExt(), resource.getType());
 						
 					} catch (IOException e) {
 						logExeptionError(e);
@@ -223,8 +224,13 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 				Graphics g = image.getGraphics();
 				Path infoFilePath = Paths.get(f.getFile().getPath());		// get path of current file
 				String folderName = infoFilePath.getParent().toString();	// get folder
-				String infoFile = folderName + "/.viewinfo.conf";			// get get infofilename
+				String infoFile = folderName + "/.viewstatus";			// get get infofilename
 				String infoKey = f.getFile().getName();						// get keyname
+				
+				debug("infoFilePath: " + infoFilePath);
+				debug("folderName: " + folderName);
+				debug("infoFile: " + infoFile);
+				debug("infoKey: " + infoKey);
 				
 				Properties props = new Properties();
 				
@@ -254,7 +260,7 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 					{
 						debug("overlay for thubmnail");
 						// draw a senitransparent black bar to increase readability
-						g.setColor(new Color(0,0,0));
+						g.setColor(new Color(0,0,0,190));
 						g.fillRect(0, image.getHeight() - 35, image.getWidth(), 35);
 		
 						// draw info
