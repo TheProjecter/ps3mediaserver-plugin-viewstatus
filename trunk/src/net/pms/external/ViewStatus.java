@@ -52,8 +52,6 @@ import org.slf4j.LoggerFactory;
  * 
  * @author Cees-Willem Hofstede <ceeswillem@gmail.com>
  * 
- * @TODO: debugging isn't so neat at the moment. Should use difference in debug, message and error.
- *
  */
 public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionListener 
 {
@@ -66,7 +64,6 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 	
 	public ViewStatus()
 	{
-		debug("ViewStatus started");
 		if(PMSConf.getCustomProperty("enableViewStatus") == null)
 		{
 			// if not set in configuration, enable plugin by default
@@ -81,8 +78,6 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 		// currently only for videofiles
 		if(enabledMV && resource.getType() == Format.VIDEO)
 		{
-			debug(String.format("Stopped playing %s (%s)", resource.getName(), resource.getResourceId()));
-			
 			// get path information
 			Path infoFilePath = Paths.get(resource.getSystemName());
 			String folderName = infoFilePath.getParent().toString();
@@ -98,7 +93,7 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 				props.load(new FileInputStream(infoFile)); // load the viewinfo file (if any)
 				fileViewPercentage = Integer.parseInt(props.getProperty(infoKey, "0"));
 			} catch (IOException e) {
-				debug("viewinfo at " + infoFile + " file does not yet exist");
+				log.error("viewinfo at " + infoFile + " file does not yet exist");
 			}
 			
 			double playLengthSec = 0; // total length of the file
@@ -111,16 +106,10 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 			playLengthSec = (int)(new Date().getTime() - startDate.getTime()) / 1000;
 			
 			double fullLengthSec = media.getDurationInSeconds();
-			debug("playLengthSec: " + playLengthSec);
-			debug("fullLengthSec: " + fullLengthSec);
 			
 			if(fullLengthSec > 0)
 			{
-				debug("currentFileView: " + playLengthSec/fullLengthSec);
-				debug("currentFileViewPercentage: " + (playLengthSec/fullLengthSec)*100);
 				double currentFileViewPercentage = (playLengthSec/fullLengthSec) * 100;
-				
-				debug("watched " + (int)currentFileViewPercentage + "%");
 				
 				// if the watched percentage is bigger than in the viewinfo file, write it to viewinfo
 				if(currentFileViewPercentage > fileViewPercentage)
@@ -150,7 +139,6 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 	{
 		if(enabledMV && resource.getType() == Format.VIDEO)
 		{
-			debug(String.format("Started playing %s (%s)", resource.getName(), resource.getResourceId()));
 			startDate = new Date(); // set the startdate
 		}
 	}
@@ -177,66 +165,22 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 		return "View Status";
 	}
 	
-	/**
-	 * for now, just do an info, this is easier to debug (ends up in trace)
-	 * 
-	 * @TODO use slf4j functionality for different message types
-	 * 
-	 * @param String	message
-	 *
-	 */
-	private void debug(String message)
-	{
-		log.info(message);
-	}
-	
-	/**
-	 * Log Exceptions by first converting it to string, and than logging that string.
-	 * 
-	 * @param Exeption e
-	 */
-	private void logExeptionError(Exception e)
-	{
-		StringWriter writer = new StringWriter();
-	    e.printStackTrace(new PrintWriter(writer));
-	    log.error(writer.toString());
-	}
-	
-	@Override
-	public void actionPerformed(ActionEvent e) 
-	{
-		if(e.getSource() == cbEnableMV)
-		{
-			enabledMV = cbEnableMV.isSelected();
-			PMSConf.setCustomProperty("enableViewStatus", enabledMV);	
-		}
-	}
-
 	@Override
 	public void updateThumb(DLNAMediaInfo media, InputFile f) {
-		debug("Thumbnail update request");
 		try {
 			BufferedImage image = ImageIO.read(new ByteArrayInputStream(media.getThumb()));
-			debug("image from buffer requested");
 			
 			if (image != null) {
-				debug("image from buffer found");
 				Graphics g = image.getGraphics();
 				Path infoFilePath = Paths.get(f.getFile().getPath());		// get path of current file
 				String folderName = infoFilePath.getParent().toString();	// get folder
-				String infoFile = folderName + "/.viewstatus";			// get get infofilename
+				String infoFile = folderName + "/.viewstatus";				// get get infofilename
 				String infoKey = f.getFile().getName();						// get keyname
-				
-				debug("infoFilePath: " + infoFilePath);
-				debug("folderName: " + folderName);
-				debug("infoFile: " + infoFile);
-				debug("infoKey: " + infoKey);
 				
 				Properties props = new Properties();
 				
 				try {
 					props.load(new FileInputStream(infoFile));
-					debug("properties found");
 					String viewInfo = "";
 					String allViewed = props.getProperty("allviewed", "false");
 					
@@ -258,7 +202,6 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 					// if info was set, draw it on the thumbnail
 					if(viewInfo != "")
 					{
-						debug("overlay for thubmnail");
 						// draw a senitransparent black bar to increase readability
 						g.setColor(new Color(0,0,0,190));
 						g.fillRect(0, image.getHeight() - 35, image.getWidth(), 35);
@@ -274,13 +217,34 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 						ByteArrayOutputStream out = new ByteArrayOutputStream();
 						ImageIO.write(image, "jpeg", out);
 						media.setThumb(out.toByteArray());
-						debug("Thumbnail updated for " + infoKey);
 					}
 				} catch (IOException e) {
 				}
 			}
 		} catch (IOException e) {
-			debug("Error while updating thumbnail : " + e.getMessage());
+			log.error("Error while updating thumbnail : " + e.getMessage());
+		}
+	}
+	
+	/**
+	 * Log Exceptions by first converting it to string, and than logging that string.
+	 * 
+	 * @param Exeption e
+	 */
+	private void logExeptionError(Exception e)
+	{
+		StringWriter writer = new StringWriter();
+	    e.printStackTrace(new PrintWriter(writer));
+	    log.error(writer.toString());
+	}
+	
+	@Override
+	public void actionPerformed(ActionEvent e) 
+	{
+		if(e.getSource() == cbEnableMV)
+		{
+			enabledMV = cbEnableMV.isSelected();
+			PMSConf.setCustomProperty("enableViewStatus", enabledMV);	
 		}
 	}
 }
