@@ -51,6 +51,7 @@ Also, in the function parse(), at the end, just before
 		setMediaparsed(true);
 	}
 }
+}}
 
 add this line
 
