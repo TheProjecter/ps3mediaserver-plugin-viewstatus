@@ -14,13 +14,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-package net.pms.external;
+package sdy.pms.external;
 
 import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedList;
 import java.util.Properties;
 import java.util.Date;
+import java.util.Queue;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -42,6 +44,7 @@ import net.pms.dlna.DLNAResource;
 import net.pms.dlna.InputFile;
 import net.pms.dlna.RealFile;
 import net.pms.formats.Format;
+import net.pms.external.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,9 +59,11 @@ import org.slf4j.LoggerFactory;
 public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionListener 
 {
 	private static final Logger log = LoggerFactory.getLogger(ViewStatus.class);
-	private Date startDate;			//date when the file was started
 	private boolean enabledMV;
 	private JCheckBox cbEnableMV;
+	Date previousDate;
+	
+	private Queue<Date> startDates = new LinkedList<Date>();
 	
 	PmsConfiguration PMSConf = PMS.getConfiguration();
 	
@@ -103,7 +108,7 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 			 *  	   Is it possible to get the exact number of seconds the file was stopped? 
 			 */
 				  
-			playLengthSec = (int)(new Date().getTime() - startDate.getTime()) / 1000;
+			playLengthSec = (int)(new Date().getTime() - startDates.poll().getTime()) / 1000;
 			
 			double fullLengthSec = media.getDurationInSeconds();
 			
@@ -139,7 +144,7 @@ public class ViewStatus implements StartStopListener, ThumbnailExtras, ActionLis
 	{
 		if(enabledMV && resource.getType() == Format.VIDEO)
 		{
-			startDate = new Date(); // set the startdate
+			startDates.add(new Date()); // set the startdate
 		}
 	}
 
